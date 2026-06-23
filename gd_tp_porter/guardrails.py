@@ -1,30 +1,29 @@
-"""Guard against the single most damaging mistake this tool could make:
-touching the in-game gameplay sheet (GJ_GameSheet / -hd / -uhd, no number).
-
-Background: most Geometry Dash texture packs only re-skin menus and player
-icons. They never modify spikes, blocks, orbs, or other gameplay sprites,
-which all live in GJ_GameSheet{,-hd,-uhd} (no numeric suffix — easy to
-confuse with GJ_GameSheet02). An earlier version of the manual process this
-tool automates incorrectly "fixed" a pack's missing icon sheet by copying in
-a vanilla GJ_GameSheet from an unrelated GD install. That copy was not
-guaranteed to byte-match the user's actual game version, and it broke
-in-game decorative spikes that had been rendering fine using the user's own
-real copy.
-
-The fix was simply: don't. If a pack doesn't ship GJ_GameSheet itself, leave
-it alone and let the user's existing GD installation supply it, as it always
-did before the port.
-
-This module exists so that's enforced in code, not just in a comment: any
-attempt to write one of these filenames anywhere in the output tree raises.
-"""
-from __future__ import annotations
+# esto existe por una sola razon: que no vuelva a pasar lo que paso con
+# los pinchos de WespTP.
+#
+# GD tiene dos sheets que se confunden facil:
+#   - GJ_GameSheet02 / 03 / 04 / Glow -> menu, UI, iconos. esto SI lo tocan
+#     los texture packs.
+#   - GJ_GameSheet (sin numero, ni "02" ni nada) -> el sheet in-game.
+#     pinchos, bloques, orbes, decoraciones. la gran mayoria de los tps
+#     (aunque digan "full pack" o lo que sea) NO tocan esto.
+#
+# la vez que portamos WespTP a mano, el GameSheet04 no tenia plist y para
+# arreglarlo tambien copie un GJ_GameSheet vanilla de otro lado pensando
+# que "ya que estamos, lo completo". error. ese archivo no es del pack,
+# es el que ya trae instalado el juego del usuario, y mi copia no
+# coincidia bien con esa version puntual de GD. resultado: los pinchos
+# (que antes andaban bien con el GameSheet del juego real) se rompieron.
+#
+# la solucion fue sacar ese archivo. y esto de aca es para que no se
+# repita: ningun modulo de este programa puede escribir GJ_GameSheet
+# (con o sin -hd/-uhd) bajo ninguna circunstancia, ni aunque la carpeta
+# de --reference tenga uno.
 
 from pathlib import Path
 
-# Matches GJ_GameSheet.png/.plist, GJ_GameSheet-hd.*, GJ_GameSheet-uhd.*
-# but NOT GJ_GameSheet02 / 03 / 04 / Glow (those are numbered/named
-# variants that texture packs legitimately do ship and customize).
+# ojo: GJ_GameSheet02, 03, 04, Glow NO entran aca. esos son archivos de
+# menu que los packs si personalizan, no hay drama en tocarlos.
 PROTECTED_BASENAMES = {"GJ_GameSheet", "GJ_GameSheet-hd", "GJ_GameSheet-uhd"}
 
 
@@ -33,21 +32,20 @@ class ProtectedFileError(RuntimeError):
 
 
 def assert_not_protected(path: Path) -> None:
-    stem = path.stem  # filename without extension
+    # path.stem = nombre del archivo sin la extension
+    stem = path.stem
     if stem in PROTECTED_BASENAMES:
         raise ProtectedFileError(
-            f"Refusing to write {path.name}: this is the in-game gameplay "
-            "sheet, which texture packs almost never ship and this tool "
-            "must never fabricate or copy in from elsewhere. The user's "
-            "own Geometry Dash installation already provides a correct, "
-            "version-matched copy — overwriting it can only make things "
-            "worse. If this specific pack genuinely does customize "
-            "in-game sprites, copy that file in by hand; don't automate it."
+            f"no se va a escribir {path.name}: es el sheet in-game. el "
+            "juego del usuario ya tiene su propia copia correcta de este "
+            "archivo y no hay forma de garantizar que la nuestra coincida "
+            "con su version de GD. si en serio este pack puntual modifica "
+            "sprites in-game, hay que copiar ese archivo a mano, no asi."
         )
 
 
 def filter_out_protected(paths: list[Path]) -> tuple[list[Path], list[Path]]:
-    """Split a list of candidate output paths into (safe, rejected)."""
+    """separa una lista de paths candidatos en (los que se pueden escribir, los que no)"""
     safe, rejected = [], []
     for p in paths:
         if p.stem in PROTECTED_BASENAMES:

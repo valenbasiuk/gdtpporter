@@ -1,7 +1,7 @@
-"""Top-level orchestration: take a 2.1-era texture pack folder and produce
-a 2.2-compatible Resources folder (+ optional zip), with a full report of
-what was changed, skipped, or flagged for manual attention.
-"""
+# orquesta todo el proceso: agarra una carpeta de pack 2.1 y devuelve una
+# carpeta Resources lista para 2.2 (+ zip si se pide), con un reporte de
+# todo lo que se cambio, se salteo, o quedo pendiente de revisar a mano.
+
 from __future__ import annotations
 
 import shutil
@@ -23,41 +23,41 @@ class PortReport:
 
     def render(self) -> str:
         lines = []
-        lines.append("=== Icon sheet splitting (player/ship/robot/etc -> icons/) ===")
+        lines.append("=== Separacion de iconos (player/ship/robot/etc -> icons/) ===")
         if not self.icon_results:
-            lines.append("  No GJ_GameSheet02 + GJ_GameSheetGlow pair found at any quality level.")
+            lines.append("  no encontre el par GJ_GameSheet02 + GJ_GameSheetGlow en ninguna calidad.")
         for r in self.icon_results:
-            label = r.quality_suffix or "(base/low quality)"
-            lines.append(f"  [{label}] wrote {r.icons_written} icon sheets")
+            label = r.quality_suffix or "(calidad base/low)"
+            lines.append(f"  [{label}] {r.icons_written} sheets de icono generados")
             for w in r.warnings:
                 lines.append(f"    ! {w}")
         lines.append("")
-        lines.append("=== Menu/UI sheet audit ===")
+        lines.append("=== Auditoria de sheets de menu/UI ===")
         for r in self.sheet_results:
             tag = f"{r.basename}{r.suffix}"
             if r.skipped_reason:
-                lines.append(f"  [{tag}] SKIPPED: {r.skipped_reason}")
+                lines.append(f"  [{tag}] SALTEADO: {r.skipped_reason}")
             elif r.fixed:
-                lines.append(f"  [{tag}] fixed:")
+                lines.append(f"  [{tag}] arreglado:")
                 for m in r.messages:
                     lines.append(f"    - {m}")
             else:
-                lines.append(f"  [{tag}] OK, no changes needed")
+                lines.append(f"  [{tag}] OK, no hacia falta nada")
         if self.removed_files:
             lines.append("")
-            lines.append("=== Removed (not needed / not compatible with 2.2) ===")
+            lines.append("=== Archivos sacados (no hacen falta / no andan en 2.2) ===")
             for f in self.removed_files:
                 lines.append(f"  - {f}")
         if self.notes:
             lines.append("")
-            lines.append("=== Notes ===")
+            lines.append("=== Notas ===")
             for n in self.notes:
                 lines.append(f"  - {n}")
         return "\n".join(lines)
 
 
-# Files associated with old fan-made background-swap hacks that predate
-# native custom-background support and are not compatible with 2.2.
+# archivos de hacks viejos de fans para cambiar el fondo, de antes de que
+# GD soportara fondos custom nativamente. no sirven en 2.2.
 LEGACY_HACK_FILES = {"GDBackground.dll"}
 
 
@@ -67,12 +67,14 @@ def port_pack(
     reference_dir: Optional[Path] = None,
     keep_legacy_hacks: bool = False,
 ) -> PortReport:
-    """Port a single texture pack folder (already extracted, containing the
-    loose .png/.plist/.fnt/.ogg files exactly as they'd sit in Resources/).
+    """
+    portea un pack (carpeta ya extraida, con los .png/.plist/.fnt/.ogg
+    sueltos tal como irian en Resources/).
 
-    output_dir is created fresh as a copy of source_dir, then modified in
-    place: icons/ added, sheets repaired, legacy hack files optionally
-    dropped. source_dir is never modified.
+    output_dir se crea como copia de source_dir y de ahi en mas se
+    modifica solo esa copia: se le agrega icons/, se le arreglan los
+    sheets, se le sacan los hacks viejos si corresponde. source_dir nunca
+    se toca.
     """
     if output_dir.exists():
         shutil.rmtree(output_dir)
@@ -80,11 +82,8 @@ def port_pack(
 
     report = PortReport()
 
-    icon_results = split_all_icons(output_dir, output_dir)
-    report.icon_results = icon_results
-
-    sheet_results = audit_and_repair_pack(output_dir, reference_dir=reference_dir)
-    report.sheet_results = sheet_results
+    report.icon_results = split_all_icons(output_dir, output_dir)
+    report.sheet_results = audit_and_repair_pack(output_dir, reference_dir=reference_dir)
 
     if not keep_legacy_hacks:
         for fname in LEGACY_HACK_FILES:
@@ -93,39 +92,37 @@ def port_pack(
                 fpath.unlink()
                 report.removed_files.append(fname)
 
-    # Defensive check: make sure nothing in the output tree is one of the
-    # protected in-game sheet files unless it was already present in the
-    # *source* (i.e. this pack genuinely ships its own, which we leave
-    # alone — we just never add one ourselves).
+    # chequeo de seguridad extra: que no haya quedado ningun archivo
+    # protegido (el sheet in-game) en la salida, a menos que YA estuviera
+    # en el pack original. esto en teoria nunca deberia dispararse porque
+    # el resto del programa ni intenta escribir esos nombres, pero si
+    # llegara a pasar, mejor fallar fuerte que entregar un sheet in-game
+    # que capaz no coincide con la version de GD del usuario.
     for protected in PROTECTED_BASENAMES:
         for ext in (".png", ".plist"):
             candidate = output_dir / f"{protected}{ext}"
             existed_in_source = (source_dir / f"{protected}{ext}").is_file()
             if candidate.is_file() and not existed_in_source:
-                # Should be unreachable given the rest of this tool never
-                # writes these names, but if it ever happens, fail loudly
-                # rather than ship a possibly-mismatched in-game sheet.
                 candidate.unlink()
                 report.notes.append(
-                    f"Removed unexpected {candidate.name}: this tool never "
-                    "creates the in-game gameplay sheet. If you need this "
-                    "fixed, the pack's own /Resources is missing it and "
-                    "your existing Geometry Dash install already supplies "
-                    "a correct copy — no action needed."
+                    f"sague {candidate.name} sin querer: este programa no "
+                    "genera el sheet in-game bajo ninguna circunstancia. si "
+                    "el pack original no lo tenia, tu GD ya te lo da puesto "
+                    "-- no hace falta hacer nada mas."
                 )
 
     report.notes.append(
-        "This tool never touches GJ_GameSheet / -hd / -uhd (no numeric "
-        "suffix) — the in-game gameplay sheet. If this pack ships its own "
-        "copy it was left untouched; if not, your existing GD install "
-        "supplies it and nothing further is needed."
+        "este programa nunca toca GJ_GameSheet / -hd / -uhd (sin numero) -- "
+        "el sheet in-game. si el pack traia su propia copia, se dejo como "
+        "estaba; si no la traia, tu instalacion de GD ya te la da y no hace "
+        "falta nada mas."
     )
 
     return report
 
 
 def zip_output(output_dir: Path, zip_path: Path) -> Path:
-    """Zip output_dir's *contents* (not the folder itself) into zip_path."""
+    """zipea el CONTENIDO de output_dir (no la carpeta en si) en zip_path"""
     if zip_path.suffix == ".zip":
         zip_path = zip_path.with_suffix("")
     archive = shutil.make_archive(str(zip_path), "zip", root_dir=str(output_dir))

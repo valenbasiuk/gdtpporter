@@ -1,13 +1,14 @@
-"""Split the pre-2.2 monolithic icon sheets (GJ_GameSheet02 + GJ_GameSheetGlow)
-into the per-icon sheets that Geometry Dash 2.2 expects under Resources/icons/.
+# separa el sheet viejo de iconos (GJ_GameSheet02 + GJ_GameSheetGlow,
+# todo amontonado en un solo archivo) en los sheets individuales por
+# icono que pide 2.2 en Resources/icons/.
+#
+# esto es una reescritura de la idea de Weebifying en 2.2tpconvert
+# (https://github.com/Weebifying/2.2tpconvert) -- el credito de haber
+# descubierto como se tenia que separar esto es de ellos. lo que cambia
+# aca: nada de regex para el textureRect (usamos plist_utils.Rect), anda
+# para las 3 calidades ('', '-hd', '-uhd') en una sola pasada, y usa los
+# arreglos de plist_utils para los plists rotos.
 
-This is a cleaned-up reimplementation of the approach pioneered by
-Weebifying's 2.2tpconvert (https://github.com/Weebifying/2.2tpconvert) — full
-credit to them for figuring out the splitting logic originally. Differences
-here: no regex parsing of textureRect (uses plist_utils.Rect), works across
-all three quality suffixes ('', '-hd', '-uhd') in one pass, and folds in the
-plist-repair / metadata fixes from gd_tp_porter.plist_utils.
-"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -18,7 +19,7 @@ from PIL import Image
 
 from .plist_utils import Rect, load_plist_repaired, save_plist
 
-Image.MAX_IMAGE_PIXELS = None
+Image.MAX_IMAGE_PIXELS = None  # los sheets uhd son grandes, no queremos que PIL se queje
 
 ICON_PREFIXES = ("bird_", "dart_", "player_", "robot_", "ship_", "spider_")
 FIREBOOST_KEY = "fireBoost_001.png"
@@ -27,12 +28,13 @@ QUALITY_SUFFIXES = ("", "-hd", "-uhd")
 
 
 def _icon_group(frame_name: str) -> str:
-    """Map a frame filename to the icon-sheet group it belongs to.
+    """
+    a que grupo (= que sheet final) pertenece este frame.
 
-    e.g. 'player_03_001.png' -> 'player_03'
-         'player_ball_12_2_001.png' -> 'player_ball_12'
-         'robot_05_glow_001.png' -> 'robot_05'
-         'fireBoost_001.png' -> 'fireBoost_001.png' (its own group)
+    ej: 'player_03_001.png'        -> 'player_03'
+        'player_ball_12_2_001.png' -> 'player_ball_12'
+        'robot_05_glow_001.png'    -> 'robot_05'
+        'fireBoost_001.png'        -> grupo propio, va solo
     """
     if frame_name == FIREBOOST_KEY:
         return frame_name
@@ -43,8 +45,7 @@ def _icon_group(frame_name: str) -> str:
 
 
 def _sprite_box(rect: Rect, sprite_size: tuple[int, int], rotated: bool) -> tuple[int, int, int, int]:
-    """Return the (left, upper, right, lower) crop box for a frame, in the
-    *source* atlas's pixel space (accounting for textureRotated)."""
+    """la caja (left, upper, right, lower) para recortar el frame del atlas ORIGINAL, ya tiendo en cuenta el textureRotated"""
     w, h = sprite_size
     if rotated:
         w, h = h, w
@@ -63,10 +64,11 @@ def split_icons_for_quality(
     suffix: str,
     out_dir: Path,
 ) -> Optional[IconSplitResult]:
-    """Split GJ_GameSheet02{suffix} + GJ_GameSheetGlow{suffix} into
-    out_dir/icons/*.png + *.plist. Returns None if the required input files
-    aren't present for this quality suffix at all (not an error — most packs
-    only ship one or two of the three qualities).
+    """
+    separa GJ_GameSheet02{suffix} + GJ_GameSheetGlow{suffix} en
+    out_dir/icons/*.png + *.plist. devuelve None si no estan los 4
+    archivos para esta calidad (no es error, la mayoria de los packs
+    solo traen una o dos de las tres calidades).
     """
     gs02_plist_path = pack_dir / f"GJ_GameSheet02{suffix}.plist"
     gs02_png_path = pack_dir / f"GJ_GameSheet02{suffix}.png"
@@ -92,9 +94,9 @@ def split_icons_for_quality(
     def is_icon_frame(name: str) -> bool:
         return name.startswith(ICON_PREFIXES) or name == FIREBOOST_KEY
 
-    # Group every relevant frame (base + glow) by icon group, in first-seen
-    # order, skipping accidental duplicate glow entries that also appear in
-    # GameSheet02 (RobTop's exporter does this for some robot frames).
+    # agrupamos cada frame que importa (base + glow) por grupo de icono,
+    # en el orden que aparecen, salteando duplicados de glow que por algun
+    # motivo tambien aparecen en GameSheet02 (pasa con algunos frames de robot)
     groups: dict[str, list[tuple[str, dict]]] = {}
     group_order: list[str] = []
     for name, frame in gs02_frames:
@@ -111,7 +113,7 @@ def split_icons_for_quality(
             continue
         grp = _icon_group(name)
         if grp not in groups:
-            # Glow-only group with no base counterpart; keep it anyway.
+            # grupo que solo tiene glow, sin base. lo guardamos igual.
             groups[grp] = []
             group_order.append(grp)
         if any(existing_name == name for existing_name, _ in groups[grp]):
@@ -127,9 +129,9 @@ def split_icons_for_quality(
         if not frames:
             continue
 
-        # First pass: compute the width needed (sum of each frame's width
-        # + 1px padding, matching the original tool's layout) and the max
-        # height.
+        # primera pasada: cuanto ancho necesitamos en total (cada frame +
+        # 1px de padding, asi queda igual al layout del tool original) y
+        # cual es el alto maximo
         total_w = 0
         max_h = 0
         sized_frames = []
@@ -151,6 +153,9 @@ def split_icons_for_quality(
             left, upper, right, lower = _sprite_box(
                 rect, _parse_curly_size(frame["spriteSize"]), rotated
             )
+            # el glow de bird/dart/player/ship hay que sacarlo del sheet
+            # de glow, no del sheet base (robot/spider/ball no tienen
+            # variante glow separada, asi que esos quedan afuera de esto)
             use_glow_source = (
                 name.endswith("glow_001.png")
                 and name.startswith(("bird_", "dart_", "player_", "ship_"))
@@ -189,8 +194,8 @@ def split_icons_for_quality(
 
 
 def _parse_curly_size(s: str) -> tuple[int, int]:
-    # spriteSize / spriteSourceSize look like "{120,150}" — reuse the Rect
-    # parser's sibling without requiring the doubled braces of textureRect.
+    # spriteSize / spriteSourceSize vienen como "{120,150}" -- mas simple
+    # que el de textureRect porque no tiene las llaves dobles
     s = s.strip().strip("{}")
     w, h = s.split(",")
     return int(float(w)), int(float(h))

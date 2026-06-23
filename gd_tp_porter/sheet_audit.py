@@ -1,24 +1,26 @@
-"""Audit and repair the menu/UI sprite sheets of a Geometry Dash texture
-pack (everything except the in-game gameplay sheet, which this tool never
-touches — see README for why).
+# revisa y arregla los sheets de menu/UI del pack (todo lo que NO sea el
+# sheet in-game -- ver guardrails.py para el por que de esa separacion).
+#
+# 3 bugs que nos encontramos portando packs reales:
+#
+# 1. plist mal formado: un <true/>/<false/> sin su <key>textureRotated</key>
+#    de antes. lo arregla plist_utils.load_plist_repaired.
+#
+# 2. metadata.size desactualizado: no afecta nada en el juego, pero lo
+#    dejamos prolijo igual.
+#
+# 3. falta el plist directamente: hay un .png pero ningun .plist al lado
+#    (nos paso con GJ_GameSheet04 en WespTP). sin el plist, Cocos2d no
+#    tiene como saber donde cortar cada sprite, y esa parte de la UI sale
+#    toda rota/recortada mal. no podemos inventar coordenadas para arte
+#    custom de un pack, pero si la grilla del sheet coincide exacto con
+#    el layout de GD vanilla (algo comun -- la mayoria de los packs solo
+#    re-pintan sprites sin mover nada de lugar), podemos pedir prestadas
+#    las coordenadas de un plist vanilla que sepamos que anda bien. esto
+#    SOLO se hace cuando el png del pack mide exactamente lo mismo en
+#    pixeles que el png de referencia -- es una señal fuerte (no perfecta,
+#    pero fuerte) de que el layout es el mismo.
 
-Three classes of issue, all discovered by porting real-world packs:
-
-1. Malformed plist: a `<true/>`/`<false/>` missing its preceding
-   `<key>textureRotated</key>`. Repaired by plist_utils.load_plist_repaired.
-2. Stale metadata.size: cosmetic only, doesn't affect rendering, but we
-   correct it for cleanliness.
-3. Missing plist entirely: a .png exists with no matching .plist (seen with
-   GJ_GameSheet04 in the wild). Cocos2d/Cocos2d-x cannot load loose sprites
-   without an atlas descriptor, and the affected UI falls back to broken/
-   misplaced fragments. We can't invent coordinates for a pack's *custom*
-   artwork, but if the menu sheet's grid matches vanilla GD's layout
-   (common — most packs only re-skin sprites without moving them), we can
-   safely borrow the *coordinates* from a known-good vanilla plist of the
-   same dimensions. We only do this when the PNG's pixel dimensions exactly
-   match the reference plist's declared size, which is a strong (though not
-   airtight) signal that the layout matches too.
-"""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -31,17 +33,16 @@ from .plist_utils import (
     PlistRepairError,
     fix_metadata_size,
     load_plist_repaired,
-    parse_size,
     save_plist,
 )
 
-# Sheets that are exclusively menu/UI/icons in every known GD release.
-# Deliberately NOT included: GJ_GameSheet{,-hd,-uhd} (no number suffix) —
-# that is the in-game gameplay sheet (spikes, blocks, orbs, decorations).
-# Most texture packs only re-skin menus/icons and never touch it; treating
-# it as "missing" and backfilling it from vanilla has been observed to
-# *break* a working install (the user's own GD already supplies a correct,
-# version-matched copy). See README "Why we never touch GJ_GameSheet".
+# sheets que en cualquier version de GD son pura UI/menu/iconos.
+# A PROPOSITO no esta GJ_GameSheet (sin numero) -- ese es el sheet
+# in-game (pinchos, bloques, orbes, decoraciones). la mayoria de los
+# packs solo repintan menu/iconos y nunca tocan ese archivo. tratarlo
+# como "falta" y rellenarlo con uno vanilla de otro lado puede romper
+# una instalacion que ya andaba bien (el usuario ya tiene su propia
+# copia correcta puesta por su GD). ver el README, sección de por qué.
 MENU_SHEET_BASENAMES = [
     "GJ_GameSheet02",
     "GJ_GameSheet03",
@@ -72,9 +73,11 @@ def audit_and_repair_sheet(
     suffix: str,
     reference_dir: Optional[Path],
 ) -> Optional[SheetAuditResult]:
-    """Check one (basename, suffix) sheet pair. Returns None if the PNG
-    doesn't exist at all for this combination (most packs don't ship every
-    quality level)."""
+    """
+    revisa un sheet (basename + suffix). devuelve None si el .png ni
+    siquiera existe para esta combinacion (la mayoria de los packs no
+    traen las 3 calidades).
+    """
     png_path = pack_dir / f"{basename}{suffix}.png"
     plist_path = pack_dir / f"{basename}{suffix}.plist"
 
@@ -94,41 +97,43 @@ def audit_and_repair_sheet(
     if not plist_path.is_file():
         if reference_dir is None:
             result.skipped_reason = (
-                "plist is missing and no reference pack was supplied "
-                "(pass --reference to borrow coordinates from a vanilla copy)"
+                "falta el plist y no me pasaste un pack de referencia "
+                "(usa --reference para pedirle prestadas las coordenadas "
+                "a una copia vanilla)"
             )
             return result
+
         ref_plist_path = reference_dir / f"{basename}{suffix}.plist"
         ref_png_path = reference_dir / f"{basename}{suffix}.png"
         if not (ref_plist_path.is_file() and ref_png_path.is_file()):
-            result.skipped_reason = f"no reference plist found for {basename}{suffix}"
+            result.skipped_reason = f"no encontre un plist de referencia para {basename}{suffix}"
             return result
 
         ref_data, ref_warnings = load_plist_repaired(ref_plist_path)
         ref_w, ref_h = Image.open(ref_png_path).size
         if (ref_w, ref_h) != (real_w, real_h):
             result.skipped_reason = (
-                f"PNG size {real_w}x{real_h} doesn't match reference "
-                f"{ref_w}x{ref_h} — layout likely differs, refusing to "
-                "guess coordinates (would risk misaligned UI)"
+                f"el png mide {real_w}x{real_h} y el de referencia "
+                f"{ref_w}x{ref_h} -- el layout seguro es distinto, mejor "
+                "no adivinar coordenadas (se podria desalinear toda la UI)"
             )
             return result
 
-        # Dimensions match exactly: safe to reuse the reference plist's
-        # frame coordinates verbatim, just repointed at this pack's PNG.
+        # las dimensiones son idénticas: podemos reusar las coordenadas
+        # del plist de referencia tal cual, solo apuntando al png de este pack
         ref_data["metadata"]["realTextureFileName"] = png_path.name
         ref_data["metadata"]["textureFileName"] = png_path.name
         save_plist(plist_path, ref_data)
         result.fixed = True
         result.messages.append(
-            f"{plist_path.name} was missing entirely; borrowed coordinates "
-            f"from reference (same {real_w}x{real_h} dimensions) since this "
-            "pack's PNG matches the vanilla layout size exactly"
+            f"{plist_path.name} no existia; le pedi prestadas las coordenadas "
+            f"a la referencia (mismas dimensiones {real_w}x{real_h}) porque "
+            "el png de este pack coincide exacto con el layout vanilla"
         )
-        result.messages += [f"(reference) {w}" for w in ref_warnings]
+        result.messages += [f"(referencia) {w}" for w in ref_warnings]
         return result
 
-    # plist exists: repair structural issues + stale metadata.
+    # el plist existe: arreglamos lo estructural + el metadata viejo
     try:
         data, warnings = load_plist_repaired(plist_path)
     except PlistRepairError as e:

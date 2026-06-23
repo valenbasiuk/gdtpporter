@@ -13,7 +13,7 @@ from gd_tp_porter.guardrails import (
     "filename",
     ["GJ_GameSheet.png", "GJ_GameSheet.plist", "GJ_GameSheet-hd.png", "GJ_GameSheet-uhd.plist"],
 )
-def test_protected_files_raise(filename: str):
+def test_el_sheet_ingame_explota(filename: str):
     with pytest.raises(ProtectedFileError):
         assert_not_protected(Path(filename))
 
@@ -28,13 +28,13 @@ def test_protected_files_raise(filename: str):
         "GJ_GameSheetGlow-uhd.png",
     ],
 )
-def test_numbered_sheets_are_not_protected(filename: str):
-    # Should not raise: numbered/named variants are legitimately customized
-    # by texture packs and are NOT the in-game gameplay sheet.
+def test_los_sheets_numerados_no_son_protegidos(filename: str):
+    # no tiene que explotar: estos son los sheets de menu que los packs
+    # si personalizan, no son el sheet in-game
     assert_not_protected(Path(filename))
 
 
-def test_filter_out_protected_splits_correctly():
+def test_filter_out_protected_separa_bien():
     paths = [
         Path("GJ_GameSheet-uhd.png"),
         Path("GJ_GameSheet02-uhd.png"),

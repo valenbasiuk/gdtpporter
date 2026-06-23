@@ -7,29 +7,29 @@ from gd_tp_porter.plist_utils import save_plist
 from gd_tp_porter.sheet_audit import audit_and_repair_sheet
 
 
-def test_missing_png_returns_none(tmp_path: Path):
+def test_sin_png_devuelve_none(tmp_path: Path):
     result = audit_and_repair_sheet(tmp_path, "GJ_GameSheet04", "-uhd", None)
     assert result is None
 
 
-def test_missing_plist_without_reference_is_skipped(tmp_path: Path):
+def test_falta_plist_sin_referencia_se_saltea(tmp_path: Path):
     Image.new("RGBA", (10, 10)).save(tmp_path / "GJ_GameSheet04-uhd.png")
     result = audit_and_repair_sheet(tmp_path, "GJ_GameSheet04", "-uhd", None)
     assert result is not None
     assert result.skipped_reason is not None
-    assert "no reference" in result.skipped_reason
+    assert "no me pasaste" in result.skipped_reason
 
 
-def test_missing_plist_with_matching_reference_is_borrowed(tmp_path: Path):
+def test_falta_plist_con_referencia_que_coincide_se_pide_prestado(tmp_path: Path):
     pack_dir = tmp_path / "pack"
     ref_dir = tmp_path / "ref"
     pack_dir.mkdir()
     ref_dir.mkdir()
 
-    # Pack has the PNG but no plist.
+    # el pack tiene el png pero no el plist
     Image.new("RGBA", (64, 32)).save(pack_dir / "GJ_GameSheet04-uhd.png")
 
-    # Reference has both, same dimensions.
+    # la referencia tiene los dos, mismas dimensiones
     Image.new("RGBA", (64, 32)).save(ref_dir / "GJ_GameSheet04-uhd.png")
     save_plist(ref_dir / "GJ_GameSheet04-uhd.plist", {
         "frames": {
@@ -56,14 +56,14 @@ def test_missing_plist_with_matching_reference_is_borrowed(tmp_path: Path):
     assert "GJ_dailyBtn_001.png" in data["frames"]
 
 
-def test_missing_plist_with_mismatched_reference_is_skipped(tmp_path: Path):
+def test_falta_plist_con_referencia_que_no_coincide_se_saltea(tmp_path: Path):
     pack_dir = tmp_path / "pack"
     ref_dir = tmp_path / "ref"
     pack_dir.mkdir()
     ref_dir.mkdir()
 
     Image.new("RGBA", (64, 32)).save(pack_dir / "GJ_GameSheet04-uhd.png")
-    # Reference PNG has DIFFERENT dimensions -> must refuse to guess.
+    # el png de referencia mide OTRA cosa -> tiene que negarse a adivinar
     Image.new("RGBA", (999, 999)).save(ref_dir / "GJ_GameSheet04-uhd.png")
     save_plist(ref_dir / "GJ_GameSheet04-uhd.plist", {
         "frames": {},
@@ -75,11 +75,11 @@ def test_missing_plist_with_mismatched_reference_is_skipped(tmp_path: Path):
     assert result is not None
     assert result.fixed is False
     assert result.skipped_reason is not None
-    assert "doesn't match" in result.skipped_reason
+    assert "seguro es distinto" in result.skipped_reason
     assert not (pack_dir / "GJ_GameSheet04-uhd.plist").is_file()
 
 
-def test_stale_metadata_size_is_corrected(tmp_path: Path):
+def test_metadata_size_viejo_se_corrige(tmp_path: Path):
     Image.new("RGBA", (64, 32)).save(tmp_path / "GJ_GameSheet03-uhd.png")
     save_plist(tmp_path / "GJ_GameSheet03-uhd.plist", {
         "frames": {},
@@ -95,7 +95,7 @@ def test_stale_metadata_size_is_corrected(tmp_path: Path):
     assert data["metadata"]["size"] == "{64,32}"
 
 
-def test_correct_sheet_is_left_alone(tmp_path: Path):
+def test_sheet_que_ya_esta_bien_no_se_toca(tmp_path: Path):
     Image.new("RGBA", (64, 32)).save(tmp_path / "GJ_GameSheet03-uhd.png")
     save_plist(tmp_path / "GJ_GameSheet03-uhd.plist", {
         "frames": {},

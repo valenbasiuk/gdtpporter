@@ -1,6 +1,7 @@
-"""Tests for icon_split using small synthetic atlases (not real GD sheets —
-just enough structure to exercise the grouping/cropping/rewriting logic
-without needing multi-megabyte fixture PNGs in the repo)."""
+# tests del icon_split con atlas sinteticos chiquitos -- no son sheets
+# reales de GD, solo lo minimo para probar el agrupado/recorte/reescritura
+# sin tener que meter pngs de varios MB en el repo como fixture
+
 from pathlib import Path
 
 from PIL import Image
@@ -9,7 +10,7 @@ from gd_tp_porter.icon_split import split_icons_for_quality
 from gd_tp_porter.plist_utils import save_plist
 
 
-def _make_frame(x, y, w, h, rotated=False):
+def _frame(x, y, w, h, rotated=False):
     return {
         "spriteOffset": "{0,0}",
         "spriteSize": f"{{{w},{h}}}",
@@ -19,24 +20,24 @@ def _make_frame(x, y, w, h, rotated=False):
     }
 
 
-def _solid_image(size, color=(255, 0, 0, 255)):
+def _imagen_solida(size, color=(255, 0, 0, 255)):
     return Image.new("RGBA", size, color)
 
 
-def test_split_icons_basic(tmp_path: Path):
-    # Build a tiny synthetic GJ_GameSheet02 with two player frames and one
-    # robot frame, plus a matching glow sheet with one player glow frame.
-    gs02_img = _solid_image((100, 50))
-    glow_img = _solid_image((100, 50), color=(0, 255, 0, 255))
+def test_split_basico(tmp_path: Path):
+    # un GJ_GameSheet02 sintetico con dos frames de player y uno de robot,
+    # mas un glow sheet con un glow de player
+    gs02_img = _imagen_solida((100, 50))
+    glow_img = _imagen_solida((100, 50), color=(0, 255, 0, 255))
 
     gs02_frames = {
-        "player_01_001.png": _make_frame(0, 0, 10, 10),
-        "player_01_2_001.png": _make_frame(10, 0, 10, 10),
-        "robot_01_001.png": _make_frame(20, 0, 15, 15),
-        "fireBoost_001.png": _make_frame(0, 20, 8, 8),
+        "player_01_001.png": _frame(0, 0, 10, 10),
+        "player_01_2_001.png": _frame(10, 0, 10, 10),
+        "robot_01_001.png": _frame(20, 0, 15, 15),
+        "fireBoost_001.png": _frame(0, 20, 8, 8),
     }
     glow_frames = {
-        "player_01_glow_001.png": _make_frame(0, 0, 12, 12),
+        "player_01_glow_001.png": _frame(0, 0, 12, 12),
     }
 
     gs02_img.save(tmp_path / "GJ_GameSheet02-uhd.png")
@@ -55,7 +56,7 @@ def test_split_icons_basic(tmp_path: Path):
 
     assert result is not None
     assert result.warnings == []
-    # 3 groups: player_01, robot_01, fireBoost_001
+    # 3 grupos: player_01, robot_01, fireBoost_001
     assert result.icons_written == 3
 
     icons_dir = out_dir / "icons"
@@ -64,7 +65,7 @@ def test_split_icons_basic(tmp_path: Path):
     assert (icons_dir / "robot_01-uhd.png").is_file()
     assert (icons_dir / "fireBoost_001-uhd.png").is_file()
 
-    # The player_01 sheet should contain all 3 of its frames (2 base + 1 glow).
+    # el sheet de player_01 tiene que tener sus 3 frames (2 base + 1 glow)
     import plistlib
     with open(icons_dir / "player_01-uhd.plist", "rb") as f:
         player_plist = plistlib.load(f)
@@ -75,21 +76,21 @@ def test_split_icons_basic(tmp_path: Path):
     }
 
 
-def test_split_icons_missing_inputs_returns_none(tmp_path: Path):
-    # No GJ_GameSheet02/Glow files at all for this suffix.
+def test_split_sin_los_archivos_necesarios_devuelve_none(tmp_path: Path):
+    # no hay ni GJ_GameSheet02 ni Glow para esta calidad
     result = split_icons_for_quality(tmp_path, "-uhd", tmp_path / "out")
     assert result is None
 
 
-def test_split_icons_repairs_broken_plist(tmp_path: Path):
-    gs02_img = _solid_image((50, 50))
-    glow_img = _solid_image((50, 50))
+def test_split_arregla_plist_roto(tmp_path: Path):
+    gs02_img = _imagen_solida((50, 50))
+    glow_img = _imagen_solida((50, 50))
 
     gs02_img.save(tmp_path / "GJ_GameSheet02-uhd.png")
     glow_img.save(tmp_path / "GJ_GameSheetGlow-uhd.png")
 
-    # Write a GameSheet02 plist with the known textureRotated-key-missing bug.
-    broken_xml = b"""<?xml version="1.0" encoding="UTF-8"?>
+    # plist de GameSheet02 con el bug del textureRotated sin su key
+    xml_roto = b"""<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
@@ -116,7 +117,7 @@ def test_split_icons_repairs_broken_plist(tmp_path: Path):
 </dict>
 </plist>
 """
-    (tmp_path / "GJ_GameSheet02-uhd.plist").write_bytes(broken_xml)
+    (tmp_path / "GJ_GameSheet02-uhd.plist").write_bytes(xml_roto)
     save_plist(tmp_path / "GJ_GameSheetGlow-uhd.plist", {
         "frames": {},
         "metadata": {"size": "{50,50}"},
@@ -127,5 +128,5 @@ def test_split_icons_repairs_broken_plist(tmp_path: Path):
 
     assert result is not None
     assert result.icons_written == 1
-    assert any("repaired" in w for w in result.warnings)
+    assert any("arregle" in w for w in result.warnings)
     assert (out_dir / "icons" / "dart_01-uhd.png").is_file()

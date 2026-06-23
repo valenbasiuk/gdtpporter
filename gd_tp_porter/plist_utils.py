@@ -1,24 +1,20 @@
-"""Shared helpers for reading/writing Cocos2d-style .plist sprite atlases
-and doing basic geometry on textureRect/spriteSize style strings.
+# cositas para leer/escribir los plist de los atlas de sprites (formato
+# viejo de TexturePacker que usa GD). un frame normal se ve asi:
+#
+#   <key>spike_01_001.png</key>
+#   <dict>
+#       <key>textureRect</key>
+#       <string>{{x,y},{w,h}}</string>
+#       <key>textureRotated</key>
+#       <false/>
+#       ...
+#   </dict>
+#
+# nos encontramos con packs en la vida real que tienen un <true/> o
+# <false/> suelto, sin el <key>textureRotated</key> de antes. eso rompe
+# el parseo (y rompe el juego tambien). en vez de afanar con regex sobre
+# el xml crudo para todo, esto repara especificamente ese bug puntual.
 
-Geometry Dash texture packs use the old-style "TexturePacker" plist format:
-    <key>frames</key>
-    <dict>
-        <key>some_001.png</key>
-        <dict>
-            <key>textureRect</key>
-            <string>{{x,y},{w,h}}</string>
-            <key>textureRotated</key>
-            <false/>
-            ...
-        </dict>
-    </dict>
-
-A handful of real-world packs ship plists with a single stray <true/> or
-<false/> that is missing its preceding <key>textureRotated</key> tag. This
-breaks plistlib (and Cocos2d itself). We detect and repair that here instead
-of relying on regex on the raw XML.
-"""
 from __future__ import annotations
 
 import plistlib
@@ -42,7 +38,7 @@ class Rect:
     def parse(cls, s: str) -> "Rect":
         m = RECT_RE.match(s.strip())
         if not m:
-            raise ValueError(f"Not a textureRect string: {s!r}")
+            raise ValueError(f"esto no es un textureRect: {s!r}")
         x, y, w, h = map(int, m.groups())
         return cls(x, y, w, h)
 
@@ -53,7 +49,7 @@ class Rect:
 def parse_size(s: str) -> tuple[int, int]:
     m = SIZE_RE.match(s.strip())
     if not m:
-        raise ValueError(f"Not a size string: {s!r}")
+        raise ValueError(f"esto no es un size: {s!r}")
     return int(m.group(1)), int(m.group(2))
 
 
@@ -62,21 +58,24 @@ def format_size(w: int, h: int) -> str:
 
 
 class PlistRepairError(RuntimeError):
-    """Raised when a plist is too malformed to safely auto-repair."""
+    """el plist esta tan roto que no nos animamos a arreglarlo solos"""
 
 
 def load_plist_repaired(path: Path) -> tuple[dict, list[str]]:
-    """Load a sprite-atlas plist, auto-repairing known-benign corruption.
+    """
+    carga un plist de atlas de sprites, arreglando la corrupcion conocida
+    si hace falta.
 
-    Returns (plist_dict, warnings). Raises PlistRepairError if the file
-    can't be parsed even after the known fixups.
+    devuelve (plist_dict, warnings). si no se puede ni con el fixup,
+    tira PlistRepairError.
 
-    Known fixup: a `<true/>` or `<false/>` for `textureRotated` that lost
-    its `<key>textureRotated</key>` predecessor (seen in the wild in at
-    least one widely-distributed pack). We only insert the missing key
-    when doing so is unambiguous: the bare bool tag must immediately
-    follow a `<string>...</string>` (the textureRect or spriteSourceSize
-    value that always precedes textureRotated in TexturePacker output).
+    el fixup conocido: un <true/> o <false/> de textureRotated que perdio
+    el <key>textureRotated</key> de antes (esto lo vimos en un pack
+    bastante distribuido, asi que no es un caso de laboratorio). solo
+    insertamos la key cuando es inequivoco: el bool suelto tiene que venir
+    justo despues de un </string> (que siempre es el textureRect o
+    spriteSourceSize, los que van justo antes de textureRotated en lo que
+    exporta TexturePacker).
     """
     raw = path.read_bytes()
     warnings: list[str] = []
@@ -95,14 +94,14 @@ def load_plist_repaired(path: Path) -> tuple[dict, list[str]]:
         try:
             data = plistlib.loads(fixed.encode("utf-8"))
             warnings.append(
-                f"{path.name}: repaired {n} missing <key>textureRotated</key> tag(s)"
+                f"{path.name}: arregle {n} <key>textureRotated</key> que faltaba(n)"
             )
             return data, warnings
         except Exception as e:
             raise PlistRepairError(
-                f"{path.name}: still invalid after attempted repair: {e}"
+                f"{path.name}: sigue invalido despues de intentar arreglarlo: {e}"
             )
-    raise PlistRepairError(f"{path.name}: could not parse and no known fixup applied")
+    raise PlistRepairError(f"{path.name}: no se pudo parsear y no aplica ningun fixup conocido")
 
 
 def save_plist(path: Path, data: dict) -> None:
@@ -111,14 +110,15 @@ def save_plist(path: Path, data: dict) -> None:
 
 
 def fix_metadata_size(data: dict, real_size: tuple[int, int]) -> Optional[str]:
-    """Correct a stale metadata.size field in place. Returns a warning
-    string if a correction was made, else None.
+    """
+    corrige el metadata.size si esta desactualizado. devuelve el mensaje
+    si corrigio algo, sino None.
 
-    metadata.size is informational only (Cocos2d does not use it to find
-    sprites — textureRect coordinates are absolute pixel offsets into the
-    real PNG) but several real packs ship a stale value left over from an
-    older export. We fix it for cleanliness / future tooling, not because
-    it affects in-game rendering.
+    esto es solo cosmetico: Cocos2d no usa metadata.size para ubicar los
+    sprites (textureRect ya son coordenadas absolutas en pixeles dentro
+    del png real), pero varios packs lo dejan con un valor viejo de una
+    exportacion anterior. lo arreglamos por prolijidad, no porque afecte
+    como se ve el juego.
     """
     meta = data.get("metadata", {})
     declared = meta.get("size")
@@ -126,5 +126,5 @@ def fix_metadata_size(data: dict, real_size: tuple[int, int]) -> Optional[str]:
     if declared != real_str:
         meta["size"] = real_str
         data["metadata"] = meta
-        return f"metadata.size was {declared}, corrected to {real_str}"
+        return f"metadata.size decia {declared}, lo corregi a {real_str}"
     return None

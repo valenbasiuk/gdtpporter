@@ -1,11 +1,11 @@
-"""Command-line entry point.
+# entrada por consola.
+#
+#   python -m gd_tp_porter MiPack.rar
+#   python -m gd_tp_porter MiPack.rar --reference ./sheets_vanilla_2.2
+#   python -m gd_tp_porter ./MiPack_carpeta_ya_extraida -o ./MiPack_2.2
+#
+# python -m gd_tp_porter --help para ver todas las opciones.
 
-    python -m gd_tp_porter MyPack.rar
-    python -m gd_tp_porter MyPack.rar --reference ./vanilla_2.2_sheets
-    python -m gd_tp_porter ./MyPack_extracted_folder -o ./MyPack_2.2
-
-Run `python -m gd_tp_porter --help` for all options.
-"""
 from __future__ import annotations
 
 import argparse
@@ -21,47 +21,43 @@ def build_arg_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="gd_tp_porter",
         description=(
-            "Port a Geometry Dash 2.1-era texture pack so it works on 2.2: "
-            "splits player/ship/robot/etc icons into the per-icon sheets "
-            "2.2 expects, and repairs a couple of known plist bugs found in "
-            "real-world packs. Never touches in-game gameplay sprites."
+            "portea un texture pack de Geometry Dash de la era 2.1 para que "
+            "ande en 2.2: separa los iconos de player/ship/robot/etc en los "
+            "sheets individuales que pide 2.2, y arregla un par de bugs de "
+            "plist que aparecen en packs reales. nunca toca sprites in-game."
         ),
     )
     p.add_argument(
         "input",
         type=Path,
-        help="Path to the pack: a .zip/.rar archive, OR a folder that "
-        "already contains the loose .png/.plist files.",
+        help="el pack: un .zip/.rar, O una carpeta que ya tiene los .png/.plist sueltos.",
     )
     p.add_argument(
         "-o",
         "--output",
         type=Path,
         default=None,
-        help="Output folder for the ported pack (default: <input-name>_2.2 "
-        "next to the input).",
+        help="carpeta de salida del pack ya porteado (por defecto: <nombre>_2.2 al lado del input)",
     )
     p.add_argument(
         "--zip",
         action="store_true",
-        help="Also produce a .zip of the output folder, ready to share.",
+        help="ademas genera un .zip de la carpeta de salida, listo para compartir",
     )
     p.add_argument(
         "--reference",
         type=Path,
         default=None,
-        help="Optional folder with a known-good vanilla 2.2 Resources copy "
-        "(loose .png/.plist files). Used ONLY to backfill a plist that's "
-        "missing entirely (e.g. GJ_GameSheet04 with no .plist), and only "
-        "when the pack's PNG is pixel-identical in size to the reference's "
-        "— never for the in-game gameplay sheet.",
+        help="carpeta opcional con una copia vanilla de Resources de 2.2 (.png/.plist "
+        "sueltos). se usa SOLO para rellenar un plist que falta por completo "
+        "(ej: GJ_GameSheet04 sin .plist), y solo cuando el png del pack mide "
+        "exactamente lo mismo que el de la referencia -- nunca para el sheet in-game.",
     )
     p.add_argument(
         "--keep-legacy-hacks",
         action="store_true",
-        help="Don't remove old fan-made background-swap hack files "
-        "(GDBackground.dll) that predate native custom-background support "
-        "and aren't compatible with 2.2.",
+        help="no borrar los hacks viejos de fondo custom (GDBackground.dll) que ya "
+        "no hacen falta y no andan en 2.2",
     )
     return p
 
@@ -71,7 +67,7 @@ def main(argv: list[str] | None = None) -> int:
     input_path: Path = args.input
 
     if not input_path.exists():
-        print(f"error: {input_path} does not exist", file=sys.stderr)
+        print(f"error: {input_path} no existe", file=sys.stderr)
         return 1
 
     cleanup_tmp = None
@@ -79,7 +75,7 @@ def main(argv: list[str] | None = None) -> int:
         if input_path.is_file():
             cleanup_tmp = tempfile.TemporaryDirectory(prefix="gd_tp_porter_")
             extract_dir = Path(cleanup_tmp.name)
-            print(f"Extracting {input_path.name} ...")
+            print(f"Extrayendo {input_path.name} ...")
             try:
                 extract_archive(input_path, extract_dir)
             except ExtractionError as e:
@@ -94,7 +90,7 @@ def main(argv: list[str] | None = None) -> int:
         output_dir = args.output or input_path.parent / f"{default_name}_2.2"
 
         print(f"Pack root: {pack_root}")
-        print(f"Output:    {output_dir}")
+        print(f"Salida:    {output_dir}")
         print()
 
         report = port_pack(
@@ -106,11 +102,11 @@ def main(argv: list[str] | None = None) -> int:
 
         print(report.render())
         print()
-        print(f"Done. Ported pack is at: {output_dir}")
+        print(f"Listo. el pack porteado quedo en: {output_dir}")
 
         if args.zip:
             zip_path = zip_output(output_dir, output_dir.with_suffix(""))
-            print(f"Zipped to: {zip_path}")
+            print(f"Zipeado en: {zip_path}")
 
         return 0
     finally:
