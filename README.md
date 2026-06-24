@@ -21,13 +21,10 @@ sudo apt install libarchive-tools # trae bsdtar
 ```
 
 ```bash
-# directo desde el archivo descargado:
 python -m gd_tp_porter MiPack.rar
 
-# y de paso te genera un .zip listo para compartir:
 python -m gd_tp_porter MiPack.rar --zip
 
-# si ya lo tenes extraido:
 python -m gd_tp_porter ./MiPackCarpeta -o ./MiPackCarpeta_2.2
 
 ```bash
