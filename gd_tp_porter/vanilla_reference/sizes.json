@@ -1,0 +1,74 @@
+{
+  "GJ_GameSheet02-hd.png": [
+    2048,
+    2048
+  ],
+  "GJ_GameSheet02-uhd.png": [
+    4096,
+    4096
+  ],
+  "GJ_GameSheet02.png": [
+    1024,
+    1024
+  ],
+  "GJ_GameSheet03-hd.png": [
+    1937,
+    1937
+  ],
+  "GJ_GameSheet03-uhd.png": [
+    4080,
+    3526
+  ],
+  "GJ_GameSheet03.png": [
+    990,
+    990
+  ],
+  "GJ_GameSheet04-hd.png": [
+    950,
+    950
+  ],
+  "GJ_GameSheet04-uhd.png": [
+    3426,
+    1023
+  ],
+  "GJ_GameSheet04.png": [
+    483,
+    483
+  ],
+  "GJ_GameSheetGlow-hd.png": [
+    1554,
+    1554
+  ],
+  "GJ_GameSheetGlow-uhd.png": [
+    4096,
+    2237
+  ],
+  "GJ_GameSheetGlow.png": [
+    815,
+    815
+  ],
+  "GJ_LaunchSheet-hd.png": [
+    1974,
+    110
+  ],
+  "GJ_LaunchSheet-uhd.png": [
+    206,
+    3919
+  ],
+  "GJ_LaunchSheet.png": [
+    508,
+    110
+  ],
+  "GauntletSheet-hd.png": [
+    726,
+    726
+  ],
+  "GauntletSheet-uhd.png": [
+    1446,
+    1446
+  ],
+  "GauntletSheet.png": [
+    370,
+    370
+  ]
+}

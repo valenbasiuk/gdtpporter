@@ -20,9 +20,20 @@
 #    SOLO se hace cuando el png del pack mide exactamente lo mismo en
 #    pixeles que el png de referencia -- es una señal fuerte (no perfecta,
 #    pero fuerte) de que el layout es el mismo.
+#
+# sobre la carpeta de referencia: solo necesitamos el .plist (las
+# coordenadas) y el TAMAÑO del .png de referencia, nunca sus pixeles. por
+# eso una referencia puede venir de dos formas:
+#   - "completa": carpeta con los .plist Y los .png reales (lo que armarias
+#     a mano con una copia de Resources de GD)
+#   - "liviana": carpeta con los .plist + un sizes.json mapeando
+#     "Archivo.png" -> [ancho, alto]. esto es lo que va empaquetado adentro
+#     del .exe, porque no tiene sentido cargar 20mb de pngs vanilla cuando
+#     lo unico que miramos de ellos es el tamaño.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -53,6 +64,21 @@ MENU_SHEET_BASENAMES = [
     "GauntletSheet",
 ]
 QUALITY_SUFFIXES = ("", "-hd", "-uhd")
+
+
+def _reference_png_size(reference_dir: Path, png_name: str) -> Optional[tuple[int, int]]:
+    """el tamaño del png de referencia, buscando primero en sizes.json (referencia liviana) y si no esta, abriendo el png real"""
+    sizes_path = reference_dir / "sizes.json"
+    if sizes_path.is_file():
+        with open(sizes_path) as f:
+            sizes = json.load(f)
+        if png_name in sizes:
+            w, h = sizes[png_name]
+            return w, h
+    png_path = reference_dir / png_name
+    if png_path.is_file():
+        return Image.open(png_path).size
+    return None
 
 
 @dataclass
@@ -104,20 +130,24 @@ def audit_and_repair_sheet(
             return result
 
         ref_plist_path = reference_dir / f"{basename}{suffix}.plist"
-        ref_png_path = reference_dir / f"{basename}{suffix}.png"
-        if not (ref_plist_path.is_file() and ref_png_path.is_file()):
+        if not ref_plist_path.is_file():
             result.skipped_reason = f"no encontre un plist de referencia para {basename}{suffix}"
             return result
 
-        ref_data, ref_warnings = load_plist_repaired(ref_plist_path)
-        ref_w, ref_h = Image.open(ref_png_path).size
-        if (ref_w, ref_h) != (real_w, real_h):
+        ref_size = _reference_png_size(reference_dir, f"{basename}{suffix}.png")
+        if ref_size is None:
+            result.skipped_reason = f"no encontre el tamaño del png de referencia para {basename}{suffix}"
+            return result
+
+        if ref_size != (real_w, real_h):
             result.skipped_reason = (
                 f"el png mide {real_w}x{real_h} y el de referencia "
-                f"{ref_w}x{ref_h} -- el layout seguro es distinto, mejor "
-                "no adivinar coordenadas (se podria desalinear toda la UI)"
+                f"{ref_size[0]}x{ref_size[1]} -- el layout seguro es distinto, "
+                "mejor no adivinar coordenadas (se podria desalinear toda la UI)"
             )
             return result
+
+        ref_data, ref_warnings = load_plist_repaired(ref_plist_path)
 
         # las dimensiones son idénticas: podemos reusar las coordenadas
         # del plist de referencia tal cual, solo apuntando al png de este pack

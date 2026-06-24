@@ -17,9 +17,13 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]
+build = ["pyinstaller>=6.0"]
 
 [project.scripts]
 gd-tp-porter = "gd_tp_porter.__main__:main"
 
 [tool.setuptools.packages.find]
 include = ["gd_tp_porter*"]
+
+[tool.setuptools.package-data]
+gd_tp_porter = ["vanilla_reference/*"]

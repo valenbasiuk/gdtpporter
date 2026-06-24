@@ -10,11 +10,10 @@ from __future__ import annotations
 
 import argparse
 import sys
-import tempfile
 from pathlib import Path
 
-from .extract import ExtractionError, extract_archive, find_pack_root
-from .porter import port_pack, zip_output
+from .extract import ExtractionError
+from .porter import port_input
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -70,48 +69,25 @@ def main(argv: list[str] | None = None) -> int:
         print(f"error: {input_path} no existe", file=sys.stderr)
         return 1
 
-    cleanup_tmp = None
     try:
-        if input_path.is_file():
-            cleanup_tmp = tempfile.TemporaryDirectory(prefix="gd_tp_porter_")
-            extract_dir = Path(cleanup_tmp.name)
-            print(f"Extrayendo {input_path.name} ...")
-            try:
-                extract_archive(input_path, extract_dir)
-            except ExtractionError as e:
-                print(f"error: {e}", file=sys.stderr)
-                return 1
-            pack_root = find_pack_root(extract_dir)
-            default_name = input_path.stem
-        else:
-            pack_root = find_pack_root(input_path)
-            default_name = input_path.name
-
-        output_dir = args.output or input_path.parent / f"{default_name}_2.2"
-
-        print(f"Pack root: {pack_root}")
-        print(f"Salida:    {output_dir}")
-        print()
-
-        report = port_pack(
-            source_dir=pack_root,
-            output_dir=output_dir,
+        output_dir, report, zip_path = port_input(
+            input_path,
+            output_dir=args.output,
             reference_dir=args.reference,
             keep_legacy_hacks=args.keep_legacy_hacks,
+            make_zip=args.zip,
         )
+    except ExtractionError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
 
-        print(report.render())
-        print()
-        print(f"Listo. el pack porteado quedo en: {output_dir}")
+    print(report.render())
+    print()
+    print(f"Listo. el pack porteado quedo en: {output_dir}")
+    if zip_path is not None:
+        print(f"Zipeado en: {zip_path}")
 
-        if args.zip:
-            zip_path = zip_output(output_dir, output_dir.with_suffix(""))
-            print(f"Zipeado en: {zip_path}")
-
-        return 0
-    finally:
-        if cleanup_tmp is not None:
-            cleanup_tmp.cleanup()
+    return 0
 
 
 if __name__ == "__main__":

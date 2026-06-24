@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import shutil
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -127,3 +128,58 @@ def zip_output(output_dir: Path, zip_path: Path) -> Path:
         zip_path = zip_path.with_suffix("")
     archive = shutil.make_archive(str(zip_path), "zip", root_dir=str(output_dir))
     return Path(archive)
+
+
+def port_input(
+    input_path: Path,
+    output_dir: Optional[Path] = None,
+    reference_dir: Optional[Path] = None,
+    keep_legacy_hacks: bool = False,
+    make_zip: bool = False,
+) -> tuple[Path, PortReport, Optional[Path]]:
+    """
+    version "te lo resuelvo todo" de port_pack: recibe directamente lo
+    que el usuario tenga a mano (un .zip/.rar, o una carpeta ya
+    extraida), se encarga de extraer si hace falta, encuentra donde
+    estan los archivos sueltos del pack, y llama a port_pack.
+
+    esto existe para que el CLI (__main__.py) y el modo drag-and-drop
+    (gui_entry.py, el que termina en el .exe) usen exactamente el mismo
+    camino de codigo y no se desincronicen con el tiempo.
+
+    devuelve (output_dir, reporte, ruta_del_zip_o_None).
+    """
+    # import acá adentro y no arriba del archivo para no obligar a quien
+    # solo usa port_pack a tambien tener que lidiar con la extraccion de
+    # archivos (cosas distintas, modulos distintos)
+    from .extract import extract_archive, find_pack_root
+
+    cleanup_tmp = None
+    try:
+        if input_path.is_file():
+            cleanup_tmp = tempfile.TemporaryDirectory(prefix="gd_tp_porter_")
+            extract_dir = Path(cleanup_tmp.name)
+            extract_archive(input_path, extract_dir)
+            pack_root = find_pack_root(extract_dir)
+            default_name = input_path.stem
+        else:
+            pack_root = find_pack_root(input_path)
+            default_name = input_path.name
+
+        final_output_dir = output_dir or input_path.parent / f"{default_name}_2.2"
+
+        report = port_pack(
+            source_dir=pack_root,
+            output_dir=final_output_dir,
+            reference_dir=reference_dir,
+            keep_legacy_hacks=keep_legacy_hacks,
+        )
+
+        zip_path = None
+        if make_zip:
+            zip_path = zip_output(final_output_dir, final_output_dir.with_suffix(""))
+
+        return final_output_dir, report, zip_path
+    finally:
+        if cleanup_tmp is not None:
+            cleanup_tmp.cleanup()

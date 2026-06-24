@@ -1,167 +1,210 @@
 # gd-tp-porter
 
-Port Geometry Dash **2.1-era texture packs** so they work cleanly on **2.2**,
-without manually splitting icon sheets or hunting down broken plists.
+Portea texture packs de Geometry Dash de la era **2.1** para que anden bien
+en **2.2**, sin tener que separar sheets de iconos a mano ni andar
+cazando plists rotos.
 
-This automates a process that's usually done by hand (or with a one-off
-script + a lot of trial and error): split the old monolithic icon sheet into
-the per-icon sheets 2.2 expects, and repair a handful of real-world plist
-bugs that show up in packs distributed in the wild.
+Esto automatiza un proceso que normalmente se hace manualmente (o con un
+script improvisado + mucho prueba y error): separar el sheet viejo de
+iconos en los sheets individuales que pide 2.2, y arreglar varios bugs de
+plist que aparecen en packs reales distribuidos por ahí.
 
-## What it does
+## Descargar y usar (sin terminal)
 
-1. **Splits icons for 2.2.** Pre-2.2, every player/ship/robot/spider/dart/
-   bird icon variant lived crammed into `GJ_GameSheet02` (+ glow variants in
-   `GJ_GameSheetGlow`). 2.2 instead expects one small sheet per icon under
-   `Resources/icons/`. This tool does that split for you, for whichever
-   quality level(s) the pack ships (`""`, `-hd`, `-uhd`).
+Si no usas la consola, bajate el ejecutable de la
+[página de Releases](../../releases) — el que dice `gd-tp-porter-windows.exe`
+si usas Windows (la inmensa mayoría).
 
-2. **Repairs known plist corruption.** Some distributed packs have a
-   `<true/>`/`<false/>` for `textureRotated` that's missing its preceding
-   `<key>textureRotated</key>` tag. This is invalid plist XML and breaks
-   parsing (and the game). Detected and fixed automatically.
+Le hacés doble click y te va a pedir la ruta del `.rar`/`.zip` de tu pack
+(o se lo podes arrastrar directamente encima del .exe). Al toque te tira
+una carpeta con el pack ya listo para 2.2, más un .zip para copiar directo
+a tu carpeta `Resources`.
 
-3. **Fixes stale `metadata.size` fields.** Cosmetic only — doesn't affect
-   rendering — but several packs have a leftover value from an older
-   export. Corrected for cleanliness.
+Este ejecutable ya trae adentro las coordenadas vanilla de Geometry Dash
+para los sheets de menú (no el arte, solo las coordenadas — ver la sección
+de abajo), así que arregla automáticamente cosas como el bug de
+`GJ_GameSheet04` sin que tengas que conseguir nada aparte.
 
-4. **Flags (and can fix) sheets that are missing their `.plist` entirely.**
-   Seen in the wild with `GJ_GameSheet04` (the sheet behind Hall of Fame,
-   Daily, Weekly, Map Packs, Gauntlets, Featured, etc.) — some packs ship
-   the `.png` with no matching `.plist` at all. Without a descriptor,
-   Cocos2d can't know where to crop each sprite, and the UI renders as
-   broken/misplaced fragments. If you pass `--reference <vanilla_2.2_dir>`
-   and the pack's PNG is **pixel-identical in size** to the reference's,
-   the tool borrows the reference's frame *coordinates* (not artwork) to
-   regenerate a working plist. If the size doesn't match, it refuses and
-   tells you why, rather than guessing.
+## Que hace
 
-5. **Never touches the in-game gameplay sheet.** See below — this is the
-   single most important design decision in this tool.
+1. **Separa los iconos para 2.2.** Antes de 2.2, todos los iconos de
+   player/ship/robot/spider/dart/bird vivian amontonados en
+   `GJ_GameSheet02` (+ las variantes de glow en `GJ_GameSheetGlow`). 2.2 en
+   cambio espera un sheet chiquito por cada icono, en `Resources/icons/`.
+   esto hace esa separacion por vos, para las calidades que traiga el pack
+   (`""`, `-hd`, `-uhd`).
 
-## Install
+2. **Arregla la corrupcion de plist conocida.** algunos packs distribuidos
+   tienen un `<true/>`/`<false/>` de `textureRotated` que perdio el
+   `<key>textureRotated</key>` de antes. eso es xml invalido y rompe el
+   parseo (y el juego). se detecta y arregla solo.
+
+3. **Arregla `metadata.size` viejo.** es puramente cosmetico -- no afecta
+   como se ve nada -- pero varios packs tienen un valor que quedo de una
+   exportacion anterior. se corrige por prolijidad.
+
+4. **Detecta (y puede arreglar) sheets sin su `.plist`.** nos paso en la
+   vida real con `GJ_GameSheet04` (el sheet de Hall of Fame, Daily, Weekly,
+   Map Packs, Gauntlets, Featured, etc) -- algunos packs traen el `.png`
+   sin ningun `.plist` al lado. sin ese descriptor, Cocos2d no tiene como
+   saber donde cortar cada sprite, y la UI sale toda rota/recortada mal. si
+   le pasas `--reference <carpeta_vanilla_2.2>` y el png del pack mide
+   **exactamente lo mismo en pixeles** que el de la referencia, el programa
+   le pide prestadas las coordenadas (no el arte) y reconstruye un plist
+   que funciona. si las medidas no coinciden, se niega y te dice por que,
+   en vez de adivinar.
+
+5. **Nunca toca el sheet in-game.** ver mas abajo -- esta es la decision de
+   diseño mas importante de toda la herramienta.
+
+## Instalar (modo consola, para developers)
 
 ```bash
-git clone https://github.com/<you>/gd-tp-porter.git
+git clone https://github.com/<tu-usuario>/gd-tp-porter.git
 cd gd-tp-porter
 pip install -r requirements.txt
 ```
 
-`.rar` extraction needs a working unrar-compatible tool on your system. The
-non-free `unrar` binary works out of the box; on Debian/Ubuntu the default
-`unrar-free` package only supports RAR4 and **not** RAR5 (which a lot of
-texture packs are distributed as). If extraction fails, install one of:
+Para extraer `.rar` hace falta algun binario que lo entienda. El `unrar`
+no-free anda de una; en debian/ubuntu el `unrar-free` por defecto solo
+entiende RAR4 y **no** RAR5 (que es como vienen muchos packs). Si la
+extraccion falla, instalá alguno de estos:
 
 ```bash
-sudo apt install p7zip-full       # provides 7z, reads RAR5
-sudo apt install libarchive-tools # provides bsdtar
+sudo apt install p7zip-full       # trae 7z, lee RAR5
+sudo apt install libarchive-tools # trae bsdtar
 ```
 
-The tool tries `rarfile`/`unrar` first and automatically falls back to
-`7z`/`7za`/`bsdtar` if needed.
+El programa prueba primero con `rarfile`/`unrar` y si falla cae solo a
+`7z`/`7za`/`bsdtar`.
 
-## Usage
+## Uso por consola
 
 ```bash
-# Straight from a downloaded archive:
-python -m gd_tp_porter MyPack.rar
+# directo desde el archivo descargado:
+python -m gd_tp_porter MiPack.rar
 
-# Also produce a ready-to-share .zip:
-python -m gd_tp_porter MyPack.rar --zip
+# y de paso te genera un .zip listo para compartir:
+python -m gd_tp_porter MiPack.rar --zip
 
-# Already extracted:
-python -m gd_tp_porter ./MyPackFolder -o ./MyPackFolder_2.2
+# si ya lo tenes extraido:
+python -m gd_tp_porter ./MiPackCarpeta -o ./MiPackCarpeta_2.2
 
-# Also backfill missing menu-sheet plists (GJ_GameSheet04, GauntletSheet,
-# etc.) using coordinates borrowed from a vanilla 2.2 Resources folder:
-python -m gd_tp_porter MyPack.rar --reference ./vanilla_2.2_resources
+# para que ademas rellene los plists de menu que falten (GJ_GameSheet04,
+# GauntletSheet, etc) usando coordenadas de una copia vanilla de 2.2:
+python -m gd_tp_porter MiPack.rar --reference ./resources_vanilla_2.2
 ```
 
-Run `python -m gd_tp_porter --help` for the full option list. Every run
-prints a report of exactly what was changed, what was skipped, and why —
-nothing happens silently.
+`python -m gd_tp_porter --help` para ver todas las opciones. cada corrida
+te tira un reporte de exactamente que se cambio, que se salteo, y por que
+-- nada pasa en silencio.
 
-### Getting a `--reference` folder
+### De donde saco una carpeta para `--reference`
 
-Any legitimate, unmodified copy of Geometry Dash 2.2's `Resources` folder
-works. The tool only ever reads `GJ_GameSheet02/03/04`, `GameSheetGlow`,
-`LaunchSheet`, `BE_GameSheet01`, and `GauntletSheet` from it — and only
-to borrow plist *coordinates* when a pack is missing its own plist and the
-PNG dimensions match exactly.
+Cualquier copia legitima y sin modificar de la carpeta `Resources` de GD
+2.2 sirve. el programa solo lee de ahi `GJ_GameSheet02/03/04`,
+`GameSheetGlow`, `LaunchSheet`, `BE_GameSheet01` y `GauntletSheet` -- y
+solo para pedir prestadas las *coordenadas* cuando a un pack le falta su
+propio plist y las dimensiones del png coinciden exacto.
 
-## Why this tool never touches `GJ_GameSheet` (no number)
+(el .exe ya trae una de estas referencias empaquetada adentro, asi que si
+usas el ejecutable no hace falta que consigas nada de esto a mano.)
 
-This is the most important thing to understand before using this tool, so
-it gets its own section.
+## Por que esta herramienta nunca toca `GJ_GameSheet` (sin numero)
 
-Geometry Dash has **two** very differently-named sheets that are easy to
-confuse:
+esto es lo mas importante de entender antes de usar el programa, por eso
+tiene su propia seccion.
 
-- `GJ_GameSheet02` / `03` / `04` / `Glow` — **menu, UI, and icon** sprites.
-  Texture packs customize these.
-- `GJ_GameSheet` (no number) — the **in-game gameplay** sheet: spikes,
-  blocks, orbs, portals, and decorations that actually appear inside levels.
+Geometry Dash tiene **dos** sheets con nombres que se confunden facil:
 
-The overwhelming majority of texture packs — including ones whose names
-suggest otherwise — **only re-skin menus and icons** and never touch
-in-game sprites at all. If a pack doesn't ship its own `GJ_GameSheet`, that
-is not a bug to fix. It means the player's own existing Geometry Dash
-installation keeps supplying it, exactly as it already was before they
-installed the pack.
+- `GJ_GameSheet02` / `03` / `04` / `Glow` -- sprites de **menu, UI e
+  iconos**. los texture packs personalizan estos.
+- `GJ_GameSheet` (sin numero) -- el sheet **in-game**: pinchos, bloques,
+  orbes, portales y decoraciones que aparecen dentro de los niveles.
 
-An earlier (manual, pre-this-tool) attempt at this exact porting process
-got this wrong: it saw `GJ_GameSheet` "missing" from a pack and copied in a
-vanilla copy from an unrelated source to "complete" it. That copy wasn't
-guaranteed to byte-match the user's actual game version, and it broke
-in-game decorative spikes that had been rendering correctly using the
-user's own real copy the whole time. The fix was to simply stop doing that.
+la gran mayoria de los texture packs -- aunque el nombre sugiera lo
+contrario -- **solo repintan menu e iconos** y nunca tocan los sprites
+in-game. si un pack no trae su propio `GJ_GameSheet`, eso no es un bug
+para arreglar. significa que la instalacion de GD que el jugador ya tiene
+sigue dando ese archivo, tal cual lo hacia antes de instalar el pack.
 
-`gd_tp_porter.guardrails` enforces this in code (`assert_not_protected`,
-exercised by `tests/test_porter_integration.py::
-test_port_pack_never_creates_protected_ingame_sheet`), not just in this
-paragraph: nothing in this tool's pipeline is capable of writing
-`GJ_GameSheet.png`, `GJ_GameSheet-hd.png`, `GJ_GameSheet-uhd.png` (or their
-`.plist`s) under any circumstance, even if a `--reference` folder happens
-to contain one. If a pack genuinely does ship its own customized
-`GJ_GameSheet`, the tool leaves it completely untouched — it just never
-adds or replaces one itself.
+un intento anterior (a mano, antes de que existiera este programa) de
+portear un pack se equivoco justo en esto: vio que faltaba `GJ_GameSheet`
+y copio uno vanilla de otro lado para "completarlo". esa copia no tenia
+garantia de coincidir byte a byte con la version de juego del usuario, y
+rompio los pinchos decorativos que venian andando bien con la copia real
+del usuario todo este tiempo. la solucion fue dejar de hacer eso, asi de
+simple.
 
-## What this tool deliberately does NOT do
+`gd_tp_porter.guardrails` aplica esto en codigo (`assert_not_protected`,
+probado en `tests/test_porter_integration.py::
+test_port_pack_jamas_genera_el_sheet_ingame`), no solo en este parrafo:
+nada en este programa puede escribir `GJ_GameSheet.png`,
+`GJ_GameSheet-hd.png`, `GJ_GameSheet-uhd.png` (ni sus `.plist`) bajo
+ninguna circunstancia, ni aunque la carpeta de `--reference` tenga uno. si
+un pack en serio trae su propio `GJ_GameSheet` customizado, el programa lo
+deja exactamente como esta -- solo que nunca agrega ni reemplaza uno el
+mismo.
 
-- **Generate missing artwork.** If a pack never drew a sprite for some 2.2
-  addition (decorative spikes, boost/portal shine variants, etc.), this
-  tool does not invent a texture for it. Those elements fall back to
-  vanilla Geometry Dash's own art, which is the correct, non-broken
-  behavior — not a bug.
-- **Guess plist coordinates without evidence.** The `--reference` backfill
-  only fires when the pack's PNG is pixel-identical in size to the
-  reference. If sizes differ even slightly, the tool refuses and tells you
-  why rather than producing a misaligned UI.
-- **Modify in-game gameplay sprites**, per above.
+## Lo que esta herramienta a proposito NO hace
 
-## Project layout
+- **Inventar arte que falte.** si un pack nunca dibujo un sprite para algo
+  que agrego 2.2 (pinchos decorativos curvos, variantes de brillo de
+  boost/portal, etc), el programa no le inventa una textura. esos
+  elementos quedan con el arte vanilla de GD, que es el comportamiento
+  correcto -- no un bug.
+- **Adivinar coordenadas de plist sin evidencia.** el relleno con
+  `--reference` solo dispara cuando el png del pack mide exactamente lo
+  mismo que el de referencia. si las medidas difieren aunque sea un poco,
+  el programa se niega y te dice por que, en vez de tirarte una UI
+  desalineada.
+- **Modificar sprites in-game**, por lo de arriba.
+
+## Estructura del proyecto
 
 ```
 gd_tp_porter/
-  plist_utils.py   # plist parsing/repair primitives (Rect, size fixups)
-  icon_split.py     # GameSheet02+Glow -> per-icon sheets (the 2.2 split)
-  sheet_audit.py    # menu/UI sheet repair (missing/stale plists)
-  guardrails.py     # the in-game-sheet protection described above
-  extract.py        # .zip/.rar extraction with RAR5 fallback handling
-  porter.py         # ties it all together, produces a PortReport
-  __main__.py       # CLI
-tests/              # pytest suite, including the guardrail regression test
+  plist_utils.py      # parseo/arreglo de plist (Rect, fixs de size)
+  icon_split.py        # GameSheet02+Glow -> sheets por icono (la separacion para 2.2)
+  sheet_audit.py        # arreglo de sheets de menu/UI (plists rotos o faltantes)
+  guardrails.py          # la proteccion del sheet in-game explicada arriba
+  extract.py              # extraccion de .zip/.rar con fallback para RAR5
+  porter.py                # une todo, genera el PortReport
+  __main__.py               # CLI (para consola)
+  gui_entry.py               # entrada del .exe (doble click / drag&drop)
+  vanilla_reference/          # coordenadas vanilla empaquetadas en el .exe
+build_entry.py                  # wrapper que usa pyinstaller para compilar
+tests/                            # suite de pytest, incluye el test de regresion del sheet in-game
 ```
 
-## Credits
+## Compilar el .exe a mano
 
-The icon-splitting approach (which frames belong to which 2.2 icon sheet,
-and how to lay out the resulting per-icon atlas) was originally worked out
-by [Weebifying's 2.2tpconvert](https://github.com/Weebifying/2.2tpconvert).
-This project reimplements that logic with a different internal structure
-(no regex-based rect parsing, multi-quality in one pass) and adds the
-plist-repair and guardrail logic on top.
+Los releases en GitHub ya traen el ejecutable compilado (ver el workflow
+en `.github/workflows/build-release.yml`, que corre solo al publicar un
+release). Si lo querés armar vos:
 
-## License
+```bash
+pip install -r requirements.txt
+pip install pyinstaller
 
-MIT — see [LICENSE](LICENSE).
+pyinstaller --name gd-tp-porter --onefile --console \
+  --add-data "gd_tp_porter/vanilla_reference:gd_tp_porter/vanilla_reference" \
+  --collect-all rarfile \
+  build_entry.py
+```
+
+(en windows el separador de `--add-data` es `;` en vez de `:` -- el
+workflow ya tiene los dos casos cubiertos)
+
+## Creditos
+
+La idea de como separar los iconos (que frames van a que sheet de 2.2, y
+como armar el atlas resultante) la resolvio originalmente
+[2.2tpconvert de Weebifying](https://github.com/Weebifying/2.2tpconvert).
+Este proyecto reimplementa esa logica con otra estructura interna (sin
+regex para el textureRect, las 3 calidades en una sola pasada) y le suma
+el arreglo de plists y las protecciones de mas arriba.
+
+## Licencia
+
+MIT -- ver [LICENSE](LICENSE).

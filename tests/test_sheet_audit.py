@@ -1,3 +1,4 @@
+import json
 import plistlib
 from pathlib import Path
 
@@ -107,3 +108,43 @@ def test_sheet_que_ya_esta_bien_no_se_toca(tmp_path: Path):
     assert result is not None
     assert result.fixed is False
     assert result.skipped_reason is None
+
+
+def test_referencia_liviana_con_sizes_json_tambien_funciona(tmp_path: Path):
+    """
+    la referencia que va empaquetada en el .exe no tiene los pngs reales
+    (serian 20mb+ de pixeles que nunca miramos) -- solo un sizes.json con
+    las dimensiones de cada uno. esto tiene que servir igual que tener
+    el png real.
+    """
+    pack_dir = tmp_path / "pack"
+    ref_dir = tmp_path / "ref_liviana"
+    pack_dir.mkdir()
+    ref_dir.mkdir()
+
+    Image.new("RGBA", (64, 32)).save(pack_dir / "GJ_GameSheet04-uhd.png")
+
+    save_plist(ref_dir / "GJ_GameSheet04-uhd.plist", {
+        "frames": {
+            "GJ_dailyBtn_001.png": {
+                "textureRect": "{{0,0},{32,32}}",
+                "textureRotated": False,
+            }
+        },
+        "metadata": {
+            "size": "{64,32}",
+            "realTextureFileName": "GJ_GameSheet04-uhd.png",
+            "textureFileName": "GJ_GameSheet04-uhd.png",
+        },
+    })
+    # nada de .png en la referencia -- solo el json con el tamaño
+    with open(ref_dir / "sizes.json", "w") as f:
+        json.dump({"GJ_GameSheet04-uhd.png": [64, 32]}, f)
+
+    result = audit_and_repair_sheet(pack_dir, "GJ_GameSheet04", "-uhd", ref_dir)
+
+    assert result is not None
+    assert result.fixed is True
+    with open(pack_dir / "GJ_GameSheet04-uhd.plist", "rb") as f:
+        data = plistlib.load(f)
+    assert "GJ_dailyBtn_001.png" in data["frames"]

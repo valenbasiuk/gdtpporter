@@ -1,0 +1,88 @@
+name: build de los ejecutables (release)
+
+# esto corre solo cuando se publica un release en github. compila el
+# .exe de windows (el que mas le interesa a la comunidad de GD) y de
+# paso los binarios de linux/mac, y los sube como assets del release.
+on:
+  release:
+    types: [published]
+  # tambien se puede tirar a mano desde la pestaña Actions, para probar
+  # el build sin tener que publicar un release de verdad
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            nombre_salida: gd-tp-porter-windows.exe
+            nombre_pyinstaller: gd-tp-porter
+            sufijo_pyinstaller: .exe
+          - os: ubuntu-latest
+            nombre_salida: gd-tp-porter-linux
+            nombre_pyinstaller: gd-tp-porter
+            sufijo_pyinstaller: ""
+          - os: macos-latest
+            nombre_salida: gd-tp-porter-macos
+            nombre_pyinstaller: gd-tp-porter
+            sufijo_pyinstaller: ""
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: correr los tests antes de compilar nada
+        run: |
+          pip install pytest
+          pytest tests/ -v
+
+      - name: compilar el ejecutable (linux/mac)
+        if: runner.os != 'Windows'
+        run: >
+          pyinstaller
+          --name gd-tp-porter
+          --onefile
+          --console
+          --add-data "gd_tp_porter/vanilla_reference:gd_tp_porter/vanilla_reference"
+          --collect-all rarfile
+          build_entry.py
+
+      - name: compilar el ejecutable (windows)
+        if: runner.os == 'Windows'
+        run: >
+          pyinstaller
+          --name gd-tp-porter
+          --onefile
+          --console
+          --add-data "gd_tp_porter/vanilla_reference;gd_tp_porter/vanilla_reference"
+          --collect-all rarfile
+          build_entry.py
+
+      - name: renombrar el binario final
+        shell: bash
+        run: |
+          mkdir -p salida
+          cp "dist/${{ matrix.nombre_pyinstaller }}${{ matrix.sufijo_pyinstaller }}" "salida/${{ matrix.nombre_salida }}"
+
+      - name: subir como asset del release
+        uses: softprops/action-gh-release@v2
+        if: github.event_name == 'release'
+        with:
+          files: salida/${{ matrix.nombre_salida }}
+
+      - name: subir como artifact (para probar sin publicar release)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.nombre_salida }}
+          path: salida/${{ matrix.nombre_salida }}

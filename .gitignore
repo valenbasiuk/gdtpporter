@@ -6,6 +6,7 @@ __pycache__/
 venv/
 build/
 dist/
+*.spec
 *.zip
 
 # Don't accidentally commit a real pack you were testing with locally.
