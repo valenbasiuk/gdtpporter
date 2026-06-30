@@ -8,22 +8,17 @@
 #     pinchos, bloques, orbes, decoraciones. la gran mayoria de los tps
 #     (aunque digan "full pack" o lo que sea) NO tocan esto.
 #
-# la vez que portamos WespTP a mano, el GameSheet04 no tenia plist y para
-# arreglarlo tambien copie un GJ_GameSheet vanilla de otro lado pensando
-# que "ya que estamos, lo completo". error. ese archivo no es del pack,
-# es el que ya trae instalado el juego del usuario, y mi copia no
-# coincidia bien con esa version puntual de GD. resultado: los pinchos
-# (que antes andaban bien con el GameSheet del juego real) se rompieron.
+# otros packs no tienen el GameSheet04 con plist y para
+# arreglarlo se puede copiar un GJ_GameSheet vanilla de otro lado pensando
+# que eso lo arreglaria pero no. 
 #
-# la solucion fue sacar ese archivo. y esto de aca es para que no se
-# repita: ningun modulo de este programa puede escribir GJ_GameSheet
-# (con o sin -hd/-uhd) bajo ninguna circunstancia, ni aunque la carpeta
-# de --reference tenga uno.
+# la solucion fue sacar ese archivo. y estoes para que no se
+# repita.
 
 from pathlib import Path
 
-# ojo: GJ_GameSheet02, 03, 04, Glow NO entran aca. esos son archivos de
-# menu que los packs si personalizan, no hay drama en tocarlos.
+# ni glow ni 02 03 04 entran aca
+
 PROTECTED_BASENAMES = {"GJ_GameSheet", "GJ_GameSheet-hd", "GJ_GameSheet-uhd"}
 
 
