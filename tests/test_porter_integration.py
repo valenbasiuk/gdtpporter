@@ -62,10 +62,7 @@ def test_port_pack_jamas_genera_el_sheet_ingame(tmp_path: Path):
     """
     este es EL test importante. ni aunque la carpeta de --reference
     tenga un GJ_GameSheet (sin numero) ahi adentro, portear un pack
-    tiene que devolver algo que no lo incluya -- exactamente el error
-    que cometimos a mano con los pinchos de WespTP. un pack que solo
-    repinta menu/iconos tiene que salir del otro lado sin un sheet
-    in-game que nunca trajo el solo.
+    tiene que devolver algo que no lo incluya
     """
     source = tmp_path / "source"
     output = tmp_path / "output"
