@@ -1,14 +1,5 @@
-# extrae el .zip/.rar que sube el usuario a una carpeta temporal, y
-# despues busca dentro de esa carpeta donde estan realmente los
-# .png/.plist sueltos (la mayoria de los packs vienen anidados un par
-# de carpetas, tipo "MiPack v2.0/MiPack/*.png").
-#
 # nota sobre el .rar: muchos packs vienen en RAR5. el unrar-free de
-# debian/ubuntu NO entiende RAR5, solo RAR4 para abajo, asi que rarfile
-# (que por detras llama a ese binario) tira "Cannot find working tool"
-# aunque "unrar" este en el PATH. probamos primero con la libreria
-# rarfile (anda perfecto si tenes el unrar real, el no-free) y si falla
-# caemos a llamar directo a 7z/7za/bsdtar, que entienden RAR5 sin drama.
+# debian/ubuntu NO entiende RAR5, solo RAR4 para abajo, asi que se usa rarfile pero no se lol capaz falla
 
 from __future__ import annotations
 
