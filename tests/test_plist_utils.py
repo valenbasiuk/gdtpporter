@@ -39,8 +39,6 @@ PLIST_OK = b"""<?xml version="1.0" encoding="UTF-8"?>
 </plist>
 """
 
-# el mismo plist de arriba pero sin el <key>textureRotated</key> antes del
-# <false/> -- el bug real que nos encontramos en un pack y que este modulo
 # tiene que poder arreglar solo
 PLIST_ROTO = PLIST_OK.replace(
     b"<key>textureRotated</key>\n            <false/>", b"<false/>"
