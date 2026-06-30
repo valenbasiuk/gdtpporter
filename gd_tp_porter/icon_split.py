@@ -3,11 +3,7 @@
 # icono que pide 2.2 en Resources/icons/.
 #
 # esto es una reescritura de la idea de Weebifying en 2.2tpconvert
-# (https://github.com/Weebifying/2.2tpconvert) -- el credito de haber
-# descubierto como se tenia que separar esto es de ellos. lo que cambia
-# aca: nada de regex para el textureRect (usamos plist_utils.Rect), anda
-# para las 3 calidades ('', '-hd', '-uhd') en una sola pasada, y usa los
-# arreglos de plist_utils para los plists rotos.
+# (https://github.com/Weebifying/2.2tpconvert) 
 
 from __future__ import annotations
 
