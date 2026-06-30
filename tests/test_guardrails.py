@@ -29,8 +29,6 @@ def test_el_sheet_ingame_explota(filename: str):
     ],
 )
 def test_los_sheets_numerados_no_son_protegidos(filename: str):
-    # no tiene que explotar: estos son los sheets de menu que los packs
-    # si personalizan, no son el sheet in-game
     assert_not_protected(Path(filename))
 
 
