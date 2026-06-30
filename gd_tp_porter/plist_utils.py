@@ -1,19 +1,5 @@
 # cositas para leer/escribir los plist de los atlas de sprites (formato
 # viejo de TexturePacker que usa GD). un frame normal se ve asi:
-#
-#   <key>spike_01_001.png</key>
-#   <dict>
-#       <key>textureRect</key>
-#       <string>{{x,y},{w,h}}</string>
-#       <key>textureRotated</key>
-#       <false/>
-#       ...
-#   </dict>
-#
-# nos encontramos con packs en la vida real que tienen un <true/> o
-# <false/> suelto, sin el <key>textureRotated</key> de antes. eso rompe
-# el parseo (y rompe el juego tambien). en vez de afanar con regex sobre
-# el xml crudo para todo, esto repara especificamente ese bug puntual.
 
 from __future__ import annotations
 
@@ -66,16 +52,7 @@ def load_plist_repaired(path: Path) -> tuple[dict, list[str]]:
     carga un plist de atlas de sprites, arreglando la corrupcion conocida
     si hace falta.
 
-    devuelve (plist_dict, warnings). si no se puede ni con el fixup,
-    tira PlistRepairError.
-
-    el fixup conocido: un <true/> o <false/> de textureRotated que perdio
-    el <key>textureRotated</key> de antes (esto lo vimos en un pack
-    bastante distribuido, asi que no es un caso de laboratorio). solo
-    insertamos la key cuando es inequivoco: el bool suelto tiene que venir
-    justo despues de un </string> (que siempre es el textureRect o
-    spriteSourceSize, los que van justo antes de textureRotated en lo que
-    exporta TexturePacker).
+    devuelve (plist_dict, warnings). si no se puede ni con el fixup, PlistRepairError
     """
     raw = path.read_bytes()
     warnings: list[str] = []
@@ -110,16 +87,6 @@ def save_plist(path: Path, data: dict) -> None:
 
 
 def fix_metadata_size(data: dict, real_size: tuple[int, int]) -> Optional[str]:
-    """
-    corrige el metadata.size si esta desactualizado. devuelve el mensaje
-    si corrigio algo, sino None.
-
-    esto es solo cosmetico: Cocos2d no usa metadata.size para ubicar los
-    sprites (textureRect ya son coordenadas absolutas en pixeles dentro
-    del png real), pero varios packs lo dejan con un valor viejo de una
-    exportacion anterior. lo arreglamos por prolijidad, no porque afecte
-    como se ve el juego.
-    """
     meta = data.get("metadata", {})
     declared = meta.get("size")
     real_str = format_size(*real_size)
