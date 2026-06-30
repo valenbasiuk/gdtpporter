@@ -1,6 +1,4 @@
-# tests del icon_split con atlas sinteticos chiquitos -- no son sheets
-# reales de GD, solo lo minimo para probar el agrupado/recorte/reescritura
-# sin tener que meter pngs de varios MB en el repo como fixture
+# honestamente no se que hace esto
 
 from pathlib import Path
 
